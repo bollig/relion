@@ -4,6 +4,8 @@ message("Running apps/CMakeLists.txt...")
 
 if(NOT MKLFFT)
 	include_directories("${FFTW_INCLUDES}")
+else(NOT MKLFFT)
+    include_directories(${MKL_INCLUDE_DIR})
 endif(NOT MKLFFT)
 #include_directories(${CMAKE_BINARY_DIR}/include)
 
@@ -34,7 +36,7 @@ if (ALTCPU)
 	file(GLOB REL_SRC_H "${CMAKE_SOURCE_DIR}/src/*.h" "${CMAKE_SOURCE_DIR}/src/acc/*.h" "${CMAKE_SOURCE_DIR}/src/acc/cpu/*.h" "${CMAKE_SOURCE_DIR}/src/acc/cpu/cpu_kernels/*.h" )
 else()
 	file(GLOB REL_SRC "${CMAKE_SOURCE_DIR}/src/*.cpp" "${CMAKE_BINARY_DIR}/macros.cpp" "${CMAKE_SOURCE_DIR}/src/*.c" "${CMAKE_SOURCE_DIR}/src/acc/*.cpp" )
-	file(GLOB REL_SRC_H "${CMAKE_SOURCE_DIR}/src/*.h" "${CMAKE_SOURCE_DIR}/src/acc/*.h" ) 
+	file(GLOB REL_SRC_H "${CMAKE_SOURCE_DIR}/src/*.h" "${CMAKE_SOURCE_DIR}/src/acc/*.h" )
 endif(ALTCPU)
 
 # Remove GUI files from relion_lib
@@ -133,6 +135,8 @@ if(NOT MKLFFT)
 	if(BUILD_OWN_FFTWF)
 		add_dependencies(relion_lib own_fftwf_lib)
 	endif()
+else(NOT MKLFFT)
+    target_link_libraries(relion_lib ${MKL_LIBRARIES})
 endif(NOT MKLFFT)
 
 if(GUI)
@@ -200,24 +204,25 @@ endif()
 
 foreach (_target ${RELION_TARGETS})
 	GET_FILENAME_COMPONENT(_target "relion_${_target}" NAME_WE)  #specify target name WE=WithoutExtension
-	
+
 	add_executable(${_target} ${_target}.cpp )
 	set(LIB relion_lib)
-	
+
  	add_dependencies(${_target} relion_lib)
-	
+
 	set_target_properties(${_target} PROPERTIES PREFIX "relion_")
 
 	if(NOT MKLFFT)
 		target_link_libraries(${_target} ${LIB} ${EXTRA_LIBS} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS})
-	else()	
+	else()
 		target_link_libraries(${_target} ${LIB} ${FFTW_LIBRARIES} ${EXTRA_LIBS} ${MPI_LIBRARIES} ${CMAKE_DL_LIBS})
+        target_link_libraries(${_target} ${MKL_LIBRARIES})
 	endif(NOT MKLFFT)
 
 	if(CUDA_FOUND)
 		target_link_libraries(${_target} relion_gpu_util)
 	endif(CUDA_FOUND)
-	
+
 	if (ALTCPU)
 		target_link_libraries(${_target} ${TBB_LIBRARIES})
 	endif(ALTCPU)
@@ -227,7 +232,7 @@ foreach (_target ${RELION_TARGETS})
 	                      XX_STANDARD_REQUIRED ON
 	                      XX_EXTENSIONS OFF
 	)
-	
+
 	list(FIND GUI_TARGETS ${_target} IS_GUI_TARGET)
 	if(NOT ${IS_GUI_TARGET} LESS 0)
 		add_dependencies(${_target} relion_gui_lib)
@@ -237,9 +242,9 @@ foreach (_target ${RELION_TARGETS})
 	if(TIFF_FOUND)
 		target_link_libraries(${_target} ${TIFF_LIBRARIES})
 	endif()
-    
+
 	#message(STATUS "added ${_target}...")
-	
+
 	install (TARGETS ${_target} RUNTIME DESTINATION bin)
 endforeach()
 
@@ -264,6 +269,6 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=c99")
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++0x")
 
 # Set this flag to activate bounds checking in stl-vectors (incl. strings)
-# It is useful to do this periodically, as it catches 
+# It is useful to do this periodically, as it catches
 # difficult-to-see and rare-to-manifest bugs
 # set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -D_GLIBCXX_DEBUG")
